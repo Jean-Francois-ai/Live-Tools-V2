@@ -8,5 +8,5 @@ Install bollinger strategy
 
 bash Live-Tools-V2/install.sh strategy_multi_bitget
 
-bash Live-tools-V2/1hcron.sh
+bash Live-Tools-V2/1hcron.sh
 
