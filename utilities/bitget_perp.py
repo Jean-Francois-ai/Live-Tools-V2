@@ -61,10 +61,10 @@ class Position(BaseModel):
 
 
 class PerpBitget:
-    def __init__(self, public_api=None, secret_api=None, password=None):
+    def __init__(self, publicapi=None, secretapi=None, password=None):
         bitget_auth_object = {
-            "apiKey": public_api,
-            "secret": secret_api,
+            "apiKey": publicapi,
+            "secret": secretapi,
             "password": password,
             "enableRateLimit": True,
             "rateLimit": 100,
