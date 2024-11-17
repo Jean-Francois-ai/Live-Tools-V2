@@ -351,7 +351,7 @@ print("Value At Risk loaded 100%")
 usd_balance = float(bitget.get_usdt_equity())
 print("USD balance :", round(usd_balance, 2), "$")
 
-positions_data = bitget.get_open_position()
+positions_data = bitget.get_open_positions()
 position_list = [
     {
         "pair": d["symbol"],
@@ -423,7 +423,7 @@ short_exposition = 0
 for pair in df_list:
     positions_exposition[pair] = {"long": 0, "short": 0}
 
-positions_data = bitget.get_open_position()
+positions_data = bitget.get_open_positions()
 for pos in positions_data:
     if pos["symbol"] in df_list and pos["side"] == "long":
         pct_exposition = (float(pos["contracts"]) * float(pos["contractSize"]) * float(pos["info"]["marketPrice"])) / usd_balance
