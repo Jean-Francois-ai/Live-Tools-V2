@@ -21,7 +21,7 @@ f = open(
 secret = json.load(f)
 f.close()
 
-account_to_select = "bitget_exemple"
+account_to_select = "bitget1"
 production = True
 timeframe = "1h"
 type = ["long", "short"]
