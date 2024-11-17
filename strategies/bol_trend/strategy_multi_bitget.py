@@ -165,7 +165,7 @@ params_coin = {
         "bb_std": 1,
         "long_ma_window": 500
     },
-    "MATIC/USDT:USDT": {
+    "MAGIC/USDT:USDT": {
         "wallet_exposure": 0.05,
         "bb_window": 100,
         "bb_std": 1,
@@ -213,13 +213,13 @@ params_coin = {
         "bb_std": 1,
         "long_ma_window": 500
     },
-    "WAVES/USDT:USDT": {
+    "WAXP/USDT:USDT": {
         "wallet_exposure": 0.05,
         "bb_window": 100,
         "bb_std": 2.25,
         "long_ma_window": 500
     },
-    "YFI/USDT:USDT": {
+    "YGG/USDT:USDT": {
         "wallet_exposure": 0.05,
         "bb_window": 100,
         "bb_std": 1,
