@@ -11,7 +11,7 @@ class PerpBitget():
             "secret": secret,
             "password": password,
             'options': {
-            'defaultType': 'future',
+            'defaultType': 'swap',
         }
         }
         if bitget_auth_object['secret'] == None:
