@@ -213,13 +213,13 @@ params_coin = {
         "bb_std": 1,
         "long_ma_window": 500
     },
-    "WAX/USDT:USDT": {
+    "WAXP/USDT:USDT": {
         "wallet_exposure": 0.05,
         "bb_window": 100,
         "bb_std": 2.25,
         "long_ma_window": 500
     },
-    "YFI/USDT:USDT": {
+    "RAY/USDT:USDT": {
         "wallet_exposure": 0.05,
         "bb_window": 100,
         "bb_std": 1,
