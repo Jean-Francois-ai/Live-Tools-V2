@@ -11,10 +11,10 @@ class PerpBitget():
             "secret": secretapi,
             "password": password,
             'options': {
-            'defaultType': 'swap',
+                'defaultType': 'swap',
+            }
         }
-        }
-        if bitget_auth_object['secret'] == None:
+        if bitget_auth_object['secret'] is None:
             self._auth = False
             self._session = ccxt.bitget()
         else:
@@ -26,7 +26,6 @@ class PerpBitget():
         """Annotation for methods that require auth."""
         def wrapped(self, *args, **kwargs):
             if not self._auth:
-                # print("You must be authenticated to use this method", fn)
                 raise Exception("You must be authenticated to use this method")
             else:
                 return fn(self, *args, **kwargs)
@@ -44,36 +43,45 @@ class PerpBitget():
 
     def get_more_last_historical_async(self, symbol, timeframe, limit):
         max_threads = 4
-        pool_size = round(limit/100)  # your "parallelness"
 
-        # define worker function before a Pool is instantiated
-        full_result = []
+        # Définir la fonction worker
         def worker(i):
-            
             try:
+                timeframe_in_seconds = self._session.parse_timeframe(timeframe)
+                since = round(time.time() * 1000) - (i * 100 * timeframe_in_seconds * 1000)
                 return self._session.fetch_ohlcv(
-                symbol, timeframe, round(time.time() * 1000) - (i*1000*60*60), limit=100)
+                    symbol, timeframe, since=since, limit=100)
             except Exception as err:
-                raise Exception("Error on last historical on " + symbol + ": " + str(err))
+                raise Exception(f"Error on last historical on {symbol}: {err}")
 
         pool = Pool(max_threads)
 
-        full_result = pool.map(worker,range(limit, 0, -100))
-        full_result = np.array(full_result).reshape(-1,6)
-        result = pd.DataFrame(data=full_result)
-        result = result.rename(
-            columns={0: 'timestamp', 1: 'open', 2: 'high', 3: 'low', 4: 'close', 5: 'volume'})
-        result = result.set_index(result['timestamp'])
-        result.index = pd.to_datetime(result.index, unit='ms')
-        del result['timestamp']
-        return result.sort_index()
+        # Calculer le nombre d'itérations nécessaires
+        iterations = list(range(0, limit, 100))
+
+        # Récupérer les données
+        full_result = pool.map(worker, iterations)
+
+        # Aplatir la liste des résultats
+        full_result_flat = [candle for batch in full_result for candle in batch]
+
+        # Convertir en DataFrame
+        result = pd.DataFrame(data=full_result_flat, columns=[
+                              'timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        result['timestamp'] = pd.to_datetime(result['timestamp'], unit='ms')
+        result = result.set_index('timestamp')
+
+        # Trier les données par date
+        result = result.sort_index()
+
+        return result
 
     def get_bid_ask_price(self, symbol):
         try:
-            ticker = self._session.fetchTicker(symbol)
-        except BaseException as err:
+            ticker = self._session.fetch_ticker(symbol)
+        except Exception as err:
             raise Exception(err)
-        return {"bid":ticker["bid"],"ask":ticker["ask"]}
+        return {"bid": ticker["bid"], "ask": ticker["ask"]}
 
     def get_min_order_amount(self, symbol):
         return self._session.markets_by_id[symbol]["info"]["minProvideSize"]
@@ -87,160 +95,149 @@ class PerpBitget():
     @authentication_required
     def place_limit_order(self, symbol, side, amount, price, reduce=False):
         try:
-            return self._session.createOrder(
-                symbol, 
-                'limit', 
-                side, 
-                self.convert_amount_to_precision(symbol, amount), 
+            return self._session.create_order(
+                symbol,
+                'limit',
+                side,
+                self.convert_amount_to_precision(symbol, amount),
                 self.convert_price_to_precision(symbol, price),
                 params={"reduceOnly": reduce}
             )
-        except BaseException as err:
+        except Exception as err:
             raise Exception(err)
 
     @authentication_required
     def place_limit_stop_loss(self, symbol, side, amount, trigger_price, price, reduce=False):
-        
         try:
-            return self._session.createOrder(
-                symbol, 
-                'limit', 
-                side, 
-                self.convert_amount_to_precision(symbol, amount), 
+            return self._session.create_order(
+                symbol,
+                'limit',
+                side,
+                self.convert_amount_to_precision(symbol, amount),
                 self.convert_price_to_precision(symbol, price),
-                params = {
-                    'stopPrice': self.convert_price_to_precision(symbol, trigger_price),  # your stop price
+                params={
+                    'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
                     "triggerType": "market_price",
                     "reduceOnly": reduce
                 }
             )
-        except BaseException as err:
+        except Exception as err:
             raise Exception(err)
 
     @authentication_required
     def place_market_order(self, symbol, side, amount, reduce=False):
         try:
-            return self._session.createOrder(
-                symbol, 
-                'market', 
-                side, 
+            return self._session.create_order(
+                symbol,
+                'market',
+                side,
                 self.convert_amount_to_precision(symbol, amount),
                 None,
                 params={"reduceOnly": reduce}
             )
-        except BaseException as err:
+        except Exception as err:
             raise Exception(err)
 
     @authentication_required
     def place_market_stop_loss(self, symbol, side, amount, trigger_price, reduce=False):
-        
         try:
-            return self._session.createOrder(
-                symbol, 
-                'market', 
-                side, 
-                self.convert_amount_to_precision(symbol, amount), 
+            return self._session.create_order(
+                symbol,
+                'market',
+                side,
+                self.convert_amount_to_precision(symbol, amount),
                 self.convert_price_to_precision(symbol, trigger_price),
-                params = {
-                    'stopPrice': self.convert_price_to_precision(symbol, trigger_price),  # your stop price
+                params={
+                    'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
                     "triggerType": "market_price",
                     "reduceOnly": reduce
                 }
             )
-        except BaseException as err:
+        except Exception as err:
             raise Exception(err)
 
     @authentication_required
     def get_balance_of_one_coin(self, coin):
         try:
-            allBalance = self._session.fetchBalance()
-        except BaseException as err:
-            raise Exception("An error occured", err)
-        try:
-            return allBalance['total'][coin]
-        except:
-            return 0
+            all_balance = self._session.fetch_balance()
+            return all_balance['total'][coin]
+        except Exception as err:
+            raise Exception("An error occurred", err)
 
     @authentication_required
     def get_all_balance(self):
         try:
-            allBalance = self._session.fetchBalance()
-        except BaseException as err:
-            raise Exception("An error occured", err)
-        try:
-            return allBalance
-        except:
-            return 0
+            all_balance = self._session.fetch_balance()
+            return all_balance
+        except Exception as err:
+            raise Exception("An error occurred", err)
 
     @authentication_required
     def get_usdt_equity(self):
         try:
-            usdt_equity = self._session.fetchBalance()["info"][0]["usdtEquity"]
-        except BaseException as err:
-            raise Exception("An error occured", err)
-        try:
+            usdt_equity = self._session.fetch_balance()["info"][0]["usdtEquity"]
             return usdt_equity
-        except:
-            return 0
+        except Exception as err:
+            raise Exception("An error occurred", err)
 
     @authentication_required
-    def get_open_order(self, symbol, conditionnal=False):
+    def get_open_order(self, symbol, conditional=False):
         try:
-            return self._session.fetchOpenOrders(symbol, params={'stop': conditionnal})
-        except BaseException as err:
-            raise Exception("An error occured", err)
+            return self._session.fetch_open_orders(symbol, params={'stop': conditional})
+        except Exception as err:
+            raise Exception("An error occurred", err)
 
     @authentication_required
     def get_my_orders(self, symbol):
         try:
             return self._session.fetch_orders(symbol)
-        except BaseException as err:
-            raise Exception("An error occured", err)
+        except Exception as err:
+            raise Exception("An error occurred", err)
 
     @authentication_required
-    def get_open_position(self,symbol=None):
+    def get_open_position(self, symbol=None):
         try:
-            positions = self._session.fetchPositions(params = {
-                    "productType": "umcbl",
-                })
-            truePositions = []
+            positions = self._session.fetch_positions(params={
+                "productType": "umcbl",
+            })
+            true_positions = []
             for position in positions:
                 if float(position['contracts']) > 0 and (symbol is None or position['symbol'] == symbol):
-                    truePositions.append(position)
-            return truePositions
-        except BaseException as err:
-            raise Exception("An error occured in get_open_position", err)
+                    true_positions.append(position)
+            return true_positions
+        except Exception as err:
+            raise Exception("An error occurred in get_open_position", err)
 
     @authentication_required
-    def cancel_order_by_id(self, id, symbol, conditionnal=False):
+    def cancel_order_by_id(self, id, symbol, conditional=False):
         try:
-            if conditionnal:
+            if conditional:
                 return self._session.cancel_order(id, symbol, params={'stop': True, "planType": "normal_plan"})
             else:
                 return self._session.cancel_order(id, symbol)
-        except BaseException as err:
-            raise Exception("An error occured in cancel_order_by_id", err)
-        
+        except Exception as err:
+            raise Exception("An error occurred in cancel_order_by_id", err)
+
     @authentication_required
     def cancel_all_open_order(self):
         try:
             return self._session.cancel_all_orders(
-                params = {
+                params={
                     "marginCoin": "USDT",
                 }
             )
-        except BaseException as err:
-            raise Exception("An error occured in cancel_all_open_order", err)
-        
+        except Exception as err:
+            raise Exception("An error occurred in cancel_all_open_order", err)
+
     @authentication_required
     def cancel_order_ids(self, ids=[], symbol=None):
         try:
             return self._session.cancel_orders(
                 ids=ids,
                 symbol=symbol,
-                params = {
+                params={
                     "marginCoin": "USDT",
                 }
             )
-        except BaseException as err:
-            raise Exception("An error occured in cancel_order_ids", err)
+        except Exception as err:
+            raise Exception("An error occurred in cancel_order_ids", err)
