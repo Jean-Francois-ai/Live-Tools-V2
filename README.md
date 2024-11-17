@@ -1,20 +1,9 @@
-Backtest-Tools-V2
+Live-Tools-V2
+Set up
+git clone https://github.com/CryptoRobotFr/Live-Tools-V2.git
 
-Prérequis
-Python >= 3.10, Git
+Install Envelopes strategy
+bash Live-Tools-V2/install.sh envelopes_multi_bitget
 
-Setup du Projet
-
-Téléchargement initial du projet
-
-git clone https://github.com/CryptoRobotFr/Backtest-Tools-V2.git
-
-Placer ensuite le terminal à l'intérieur du dossier Backtest-Tools-V2
-
-Mise en place de l'environnement virtuel (très recommandé):
-
-python -m venv .venv
-
-.venv\Scripts\activate
-
-pip install -r .\requirements.txt
+Install Trix strategy
+bash Live-Tools-V2/install.sh trix_multi_bitmart
