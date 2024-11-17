@@ -5,10 +5,10 @@ from multiprocessing.pool import ThreadPool as Pool
 import numpy as np
 
 class PerpBitget():
-    def __init__(self, apiKey=None, secret=None, password=None):
+    def __init__(self, publicapi=None, secretapi=None, password=None):
         bitget_auth_object = {
-            "apiKey": apiKey,
-            "secret": secret,
+            "apiKey": publicapi,
+            "secret": secretapi,
             "password": password,
             'options': {
             'defaultType': 'swap',
