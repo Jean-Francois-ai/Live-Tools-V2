@@ -42,7 +42,7 @@ class PerpBitget():
         return result
 
     def get_more_last_historical_async(self, symbol, timeframe, limit):
-         1  def get_more_last_historical_async(self, symbol, timeframe, limit):
+        
         max_threads = 4
  
         batch_size = 100
