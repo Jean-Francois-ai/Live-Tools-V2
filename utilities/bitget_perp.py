@@ -6,6 +6,7 @@ import time
 import itertools
 from pydantic import BaseModel
 from multiprocessing.pool import ThreadPool as Pool
+import numpy as np
 
 
 class UsdtBalance(BaseModel):
