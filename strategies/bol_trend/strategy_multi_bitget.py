@@ -14,10 +14,11 @@ from secret import ACCOUNTS
 now = datetime.now()
 current_time = now.strftime("%d/%m/%Y %H:%M:%S")
 print("--- Start Execution Time :", current_time, "---")
+account = ACCOUNTS["bitget1"]
 
 
 
-account_to_select = "bitget1"
+account_to_select = account
 production = True
 timeframe = "1h"
 type = ["long", "short"]
