@@ -1,5 +1,5 @@
 import sys
-sys.path.append("./live_tools")
+sys.path.append("./Live-Tools-V2")
 import ccxt
 import ta
 import pandas as pd
