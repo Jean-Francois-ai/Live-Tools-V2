@@ -5,6 +5,7 @@ import pandas as pd
 import time
 import itertools
 from pydantic import BaseModel
+from multiprocessing.pool import ThreadPool as Pool
 
 
 class UsdtBalance(BaseModel):
@@ -108,6 +109,32 @@ class PerpBitget:
     def price_to_precision(self, pair: str, price: float) -> float:
         pair = self.ext_pair_to_pair(pair)
         return self._session.price_to_precision(pair, price)
+
+    def get_more_last_historical_async(self, symbol, timeframe, limit):
+        max_threads = 4
+        pool_size = round(limit/100)  # your "parallelness"
+
+        # define worker function before a Pool is instantiated
+        full_result = []
+        def worker(i):
+            
+            try:
+                return self._session.fetch_ohlcv(
+                symbol, timeframe, round(time.time() * 1000) - (i*1000*60*60), limit=100)
+            except Exception as err:
+                raise Exception("Error on last historical on " + symbol + ": " + str(err))
+
+        pool = Pool(max_threads)
+
+        full_result = pool.map(worker,range(limit, 0, -100))
+        full_result = np.array(full_result).reshape(-1,6)
+        result = pd.DataFrame(data=full_result)
+        result = result.rename(
+            columns={0: 'timestamp', 1: 'open', 2: 'high', 3: 'low', 4: 'close', 5: 'volume'})
+        result = result.set_index(result['timestamp'])
+        result.index = pd.to_datetime(result.index, unit='ms')
+        del result['timestamp']
+        return result.sort_index()
 
     async def get_last_ohlcv(self, pair, timeframe, limit=1000) -> pd.DataFrame:
         pair = self.ext_pair_to_pair(pair)
