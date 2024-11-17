@@ -200,8 +200,8 @@ class PerpBitget():
     @authentication_required
     def get_open_position(self,symbol=None):
         try:
-            positions = self._session.fetchPositions(params = {
-                    "productType": "umcbl",
+            positions = self._session.fetch_positions(params = {
+                    "productType": "UMCBL",
                 })
             truePositions = []
             for position in positions:
