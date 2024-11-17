@@ -307,6 +307,7 @@ for pair in params_coin:
     else:
         print(f"Pair {pair} not loaded, length: {len(temp_data)}")
 print("Data OHLCV loaded 100%")
+print(df_list)
 
 for pair in df_list:
     df = df_list[pair]
