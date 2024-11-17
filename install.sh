@@ -11,8 +11,8 @@ else
     PYTHON_SCRIPT=""
 
     # Déterminer le script Python en fonction de l'argument
-    if [ "$ARGUMENT" == "trix_multi_bitmart" ]; then
-        PYTHON_SCRIPT="python3 Live-Tools-V2/strategies/trix/multi_bitmart.py"
+    if [ "$ARGUMENT" == "strategy_multi_bitget" ]; then
+        PYTHON_SCRIPT="python3 Live-Tools-V2/strategies/bol_trend/strategy_multi_bitget.py"
     elif [ "$ARGUMENT" == "trix_multi_bitmart_lite" ]; then
         PYTHON_SCRIPT="python3 Live-Tools-V2/strategies/trix/multi_bitmart_lite.py"
     elif [ "$ARGUMENT" == "envelopes_multi_bitget" ]; then
