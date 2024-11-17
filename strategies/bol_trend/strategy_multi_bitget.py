@@ -3,7 +3,7 @@ sys.path.append("./Live-Tools-V2")
 import ccxt
 import ta
 import pandas as pd
-from utilities.perp_bitget import PerpBitget
+from utilities.bitget_perp import PerpBitget
 from utilities.custom_indicators import get_n_columns
 from utilities.var import ValueAtRisk
 from datetime import datetime
