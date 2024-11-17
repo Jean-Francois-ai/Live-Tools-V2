@@ -1,5 +1,4 @@
 import sys
-
 sys.path.append("./Live-Tools-V2")
 import ccxt
 import ta
