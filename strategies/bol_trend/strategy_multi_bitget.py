@@ -19,7 +19,7 @@ print("--- Start Execution Time :", current_time, "---")
 
 account = ACCOUNTS["bitget1"]
 
-account_to_select = "bitget1"
+
 production = True
 timeframe = "1h"
 type = ["long", "short"]
