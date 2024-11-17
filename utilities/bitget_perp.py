@@ -41,7 +41,7 @@ class PerpBitget():
         del result['timestamp']
         return result
 
-   def get_more_last_historical_async(self, symbol, timeframe, limit):
+    def get_more_last_historical_async(self, symbol, timeframe, limit):
         max_threads = 4
 
         def worker(i):
