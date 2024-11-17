@@ -295,7 +295,8 @@ print(f"--- Bollinger Trend on {len(params_coin)} tokens {timeframe} Leverage x{
 bitget = PerpBitget(
         apiKey=account["apiKey"],
         secret=account["secret"],
-        password=account["password"],)
+        password=account["password"],
+)
 
 
 # Get data
