@@ -301,7 +301,7 @@ bitget = PerpBitget(
 # Get data
 df_list = {}
 for pair in params_coin:
-    temp_data = bitget.get_more_last_historical_async(pair, timeframe, 1000)
+    temp_data = bitget.get_more_last_historical(pair, timeframe, 1000)
     if len(temp_data) == 1000:
         df_list[pair] = temp_data
     else:
