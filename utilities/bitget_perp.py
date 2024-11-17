@@ -152,6 +152,15 @@ class PerpBitget:
         pair = self.ext_pair_to_pair(pair)
         return self._session.price_to_precision(pair, price)
 
+    def get_usdt_equity(self):
+        try:
+            usdt_equity = self._session.fetchBalance()["info"][0]["usdtEquity"]
+        except BaseException as err:
+            raise Exception("An error occured", err)
+        try:
+            return usdt_equity
+        except:
+            return 0
     
     async def get_last_ohlcv(self, pair, timeframe, limit=1000) -> pd.DataFrame:
         pair = self.ext_pair_to_pair(pair)
