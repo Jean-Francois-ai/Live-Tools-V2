@@ -292,8 +292,8 @@ def close_short(row):
 print(f"--- Bollinger Trend on {len(params_coin)} tokens {timeframe} Leverage x{leverage} ---")
 
 bitget = PerpBitget(
-        public_api=account["public_api"],
-        secret_api=account["secret_api"],
+        public_api=account["apiKey"],
+        secret_api=account["secret"],
         password=account["password"],
 
 # Get data
