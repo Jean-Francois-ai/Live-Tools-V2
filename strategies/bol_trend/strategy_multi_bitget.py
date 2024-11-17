@@ -303,7 +303,7 @@ min_data_length = 900
 df_list = {}
 for pair in params_coin:
     try:
-        temp_data = bitget.get_more_last_historical_async(pair, timeframe, 1000)
+        temp_data = bitget.get_more_last_historical(pair, timeframe, 1000)
         if len(temp_data) >= min_data_length:
             df_list[pair] = temp_data
         else:
