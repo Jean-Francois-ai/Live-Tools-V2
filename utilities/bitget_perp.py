@@ -1,413 +1,246 @@
-from typing import List
-import ccxt.async_support as ccxt
-import asyncio
+import ccxt
 import pandas as pd
 import time
-import itertools
-from pydantic import BaseModel
+from multiprocessing.pool import ThreadPool as Pool
+import numpy as np
 
-
-class UsdtBalance(BaseModel):
-    total: float
-    free: float
-    used: float
-
-
-class Info(BaseModel):
-    success: bool
-    message: str
-
-
-class Order(BaseModel):
-    id: str
-    pair: str
-    type: str
-    side: str
-    price: float
-    size: float
-    reduce: bool
-    filled: float
-    remaining: float
-    timestamp: int
-
-
-class TriggerOrder(BaseModel):
-    id: str
-    pair: str
-    type: str
-    side: str
-    price: float
-    trigger_price: float
-    size: float
-    reduce: bool
-    timestamp: int
-
-
-class Position(BaseModel):
-    pair: str
-    side: str
-    size: float
-    usd_size: float
-    entry_price: float
-    current_price: float
-    unrealizedPnl: float
-    liquidation_price: float
-    margin_mode: str
-    leverage: float
-    hedge_mode: bool
-    open_timestamp: int
-    take_profit_price: float
-    stop_loss_price: float
-
-
-class PerpBitget:
-    def __init__(self, public_api=None, secret_api=None, password=None):
+class PerpBitget():
+    def __init__(self, apiKey=None, secret=None, password=None):
         bitget_auth_object = {
-            "apiKey": public_api,
-            "secret": secret_api,
+            "apiKey": apiKey,
+            "secret": secret,
             "password": password,
-            "enableRateLimit": True,
-            "rateLimit": 100,
-            "options": {
-                "defaultType": "future",
-            },
+            'options': {
+            'defaultType': 'swap',
         }
-        if bitget_auth_object["secret"] == None:
+        }
+        if bitget_auth_object['secret'] == None:
             self._auth = False
             self._session = ccxt.bitget()
         else:
             self._auth = True
             self._session = ccxt.bitget(bitget_auth_object)
+        self.market = self._session.load_markets()
 
-    async def load_markets(self):
-        self.market = await self._session.load_markets()
+    def authentication_required(fn):
+        """Annotation for methods that require auth."""
+        def wrapped(self, *args, **kwargs):
+            if not self._auth:
+                # print("You must be authenticated to use this method", fn)
+                raise Exception("You must be authenticated to use this method")
+            else:
+                return fn(self, *args, **kwargs)
+        return wrapped
 
-    async def close(self):
-        await self._session.close()
+    def get_last_historical(self, symbol, timeframe, limit):
+        result = pd.DataFrame(data=self._session.fetch_ohlcv(
+            symbol, timeframe, None, limit=limit))
+        result = result.rename(
+            columns={0: 'timestamp', 1: 'open', 2: 'high', 3: 'low', 4: 'close', 5: 'volume'})
+        result = result.set_index(result['timestamp'])
+        result.index = pd.to_datetime(result.index, unit='ms')
+        del result['timestamp']
+        return result
 
-    def ext_pair_to_pair(self, ext_pair) -> str:
-        return f"{ext_pair}:USDT"
+    def get_more_last_historical_async(self, symbol, timeframe, limit):
+        max_threads = 4
+        pool_size = round(limit/100)  # your "parallelness"
 
-    def pair_to_ext_pair(self, pair) -> str:
-        return pair.replace(":USDT", "")
-    
-    def get_pair_info(self, ext_pair) -> str:
-        pair = self.ext_pair_to_pair(ext_pair)
-        if pair in self.market:
-            return self.market[pair]
-        else: 
-            return None
+        # define worker function before a Pool is instantiated
+        full_result = []
+        def worker(i):
+            
+            try:
+                return self._session.fetch_ohlcv(
+                symbol, timeframe, round(time.time() * 1000) - (i*1000*60*60), limit=100)
+            except Exception as err:
+                raise Exception("Error on last historical on " + symbol + ": " + str(err))
 
-    def amount_to_precision(self, pair: str, amount: float) -> float:
-        pair = self.ext_pair_to_pair(pair)
+        pool = Pool(max_threads)
+
+        full_result = pool.map(worker,range(limit, 0, -100))
+        full_result = np.array(full_result).reshape(-1,6)
+        result = pd.DataFrame(data=full_result)
+        result = result.rename(
+            columns={0: 'timestamp', 1: 'open', 2: 'high', 3: 'low', 4: 'close', 5: 'volume'})
+        result = result.set_index(result['timestamp'])
+        result.index = pd.to_datetime(result.index, unit='ms')
+        del result['timestamp']
+        return result.sort_index()
+
+    def get_bid_ask_price(self, symbol):
         try:
-            return self._session.amount_to_precision(pair, amount)
-        except Exception as e:
+            ticker = self._session.fetchTicker(symbol)
+        except BaseException as err:
+            raise Exception(err)
+        return {"bid":ticker["bid"],"ask":ticker["ask"]}
+
+    def get_min_order_amount(self, symbol):
+        return self._session.markets_by_id[symbol]["info"]["minProvideSize"]
+
+    def convert_amount_to_precision(self, symbol, amount):
+        return self._session.amount_to_precision(symbol, amount)
+
+    def convert_price_to_precision(self, symbol, price):
+        return self._session.price_to_precision(symbol, price)
+
+    @authentication_required
+    def place_limit_order(self, symbol, side, amount, price, reduce=False):
+        try:
+            return self._session.createOrder(
+                symbol, 
+                'limit', 
+                side, 
+                self.convert_amount_to_precision(symbol, amount), 
+                self.convert_price_to_precision(symbol, price),
+                params={"reduceOnly": reduce}
+            )
+        except BaseException as err:
+            raise Exception(err)
+
+    @authentication_required
+    def place_limit_stop_loss(self, symbol, side, amount, trigger_price, price, reduce=False):
+        
+        try:
+            return self._session.createOrder(
+                symbol, 
+                'limit', 
+                side, 
+                self.convert_amount_to_precision(symbol, amount), 
+                self.convert_price_to_precision(symbol, price),
+                params = {
+                    'stopPrice': self.convert_price_to_precision(symbol, trigger_price),  # your stop price
+                    "triggerType": "market_price",
+                    "reduceOnly": reduce
+                }
+            )
+        except BaseException as err:
+            raise Exception(err)
+
+    @authentication_required
+    def place_market_order(self, symbol, side, amount, reduce=False):
+        try:
+            return self._session.createOrder(
+                symbol, 
+                'market', 
+                side, 
+                self.convert_amount_to_precision(symbol, amount),
+                None,
+                params={"reduceOnly": reduce}
+            )
+        except BaseException as err:
+            raise Exception(err)
+
+    @authentication_required
+    def place_market_stop_loss(self, symbol, side, amount, trigger_price, reduce=False):
+        
+        try:
+            return self._session.createOrder(
+                symbol, 
+                'market', 
+                side, 
+                self.convert_amount_to_precision(symbol, amount), 
+                self.convert_price_to_precision(symbol, trigger_price),
+                params = {
+                    'stopPrice': self.convert_price_to_precision(symbol, trigger_price),  # your stop price
+                    "triggerType": "market_price",
+                    "reduceOnly": reduce
+                }
+            )
+        except BaseException as err:
+            raise Exception(err)
+
+    @authentication_required
+    def get_balance_of_one_coin(self, coin):
+        try:
+            allBalance = self._session.fetchBalance()
+        except BaseException as err:
+            raise Exception("An error occured", err)
+        try:
+            return allBalance['total'][coin]
+        except:
             return 0
 
-    def price_to_precision(self, pair: str, price: float) -> float:
-        pair = self.ext_pair_to_pair(pair)
-        return self._session.price_to_precision(pair, price)
-
-    async def get_last_ohlcv(self, pair, timeframe, limit=1000) -> pd.DataFrame:
-        pair = self.ext_pair_to_pair(pair)
-        bitget_limit = 200
-        ts_dict = {
-            "1m": 1 * 60 * 1000,
-            "5m": 5 * 60 * 1000,
-            "15m": 15 * 60 * 1000,
-            "1h": 60 * 60 * 1000,
-            "2h": 2 * 60 * 60 * 1000,
-            "4h": 4 * 60 * 60 * 1000,
-            "1d": 24 * 60 * 60 * 1000,
-        }
-        end_ts = int(time.time() * 1000)
-        start_ts = end_ts - ((limit) * ts_dict[timeframe])
-        current_ts = start_ts
-        tasks = []
-        while current_ts < end_ts:
-            req_end_ts = min(current_ts + (bitget_limit * ts_dict[timeframe]), end_ts)
-            tasks.append(
-                self._session.fetch_ohlcv(
-                    pair,
-                    timeframe,
-                    limit=bitget_limit,
-                    params={
-                        "startTime": str(current_ts),
-                        "endTime": str(req_end_ts),
-                    },
-                )
-            )
-            current_ts += (bitget_limit * ts_dict[timeframe]) + 1
-        ohlcv_unpack = await asyncio.gather(*tasks)
-        ohlcv_list = list(itertools.chain.from_iterable(ohlcv_unpack))
-        df = pd.DataFrame(
-            ohlcv_list, columns=["date", "open", "high", "low", "close", "volume"]
-        )
-        df = df.set_index(df["date"])
-        df.index = pd.to_datetime(df.index, unit="ms")
-        df = df.sort_index()
-        del df["date"]
-        return df
-
-    async def get_balance(self) -> UsdtBalance:
-        resp = await self._session.fetch_balance()
-        return UsdtBalance(
-            total=resp["USDT"]["total"],
-            free=resp["USDT"]["free"],
-            used=resp["USDT"]["used"],
-        )
-
-    async def set_margin_mode_and_leverage(self, pair, margin_mode, leverage):
-        if margin_mode not in ["crossed", "isolated"]:
-            raise Exception("Margin mode must be either 'crossed' or 'isolated'")
-        pair = self.ext_pair_to_pair(pair)
+    @authentication_required
+    def get_all_balance(self):
         try:
-            await self._session.set_margin_mode(
-                margin_mode,
-                pair,
-                params={"productType": "USDT-FUTURES", "marginCoin": "USDT"},
-            )
-        except Exception as e:
-            pass
+            allBalance = self._session.fetchBalance()
+        except BaseException as err:
+            raise Exception("An error occured", err)
         try:
-            if margin_mode == "isolated":
-                tasks = []
-                tasks.append(
-                    self._session.set_leverage(
-                        leverage,
-                        pair,
-                        params={
-                            "productType": "USDT-FUTURES",
-                            "marginCoin": "USDT",
-                            "holdSide": "long",
-                        },
-                    )
-                )
-                tasks.append(
-                    self._session.set_leverage(
-                        leverage,
-                        pair,
-                        params={
-                            "productType": "USDT-FUTURES",
-                            "marginCoin": "USDT",
-                            "holdSide": "short",
-                        },
-                    )
-                )
-                await asyncio.gather(*tasks)
+            return allBalance
+        except:
+            return 0
+
+    @authentication_required
+    def get_usdt_equity(self):
+        try:
+            usdt_equity = self._session.fetchBalance()["info"][0]["usdtEquity"]
+        except BaseException as err:
+            raise Exception("An error occured", err)
+        try:
+            return usdt_equity
+        except:
+            return 0
+
+    @authentication_required
+    def get_open_order(self, symbol, conditionnal=False):
+        try:
+            return self._session.fetchOpenOrders(symbol, params={'stop': conditionnal})
+        except BaseException as err:
+            raise Exception("An error occured", err)
+
+    @authentication_required
+    def get_my_orders(self, symbol):
+        try:
+            return self._session.fetch_orders(symbol)
+        except BaseException as err:
+            raise Exception("An error occured", err)
+
+    @authentication_required
+    def get_open_position(self,symbol=None):
+        try:
+            positions = self._session.fetchPositions(params = {
+                    "productType": "umcbl",
+                })
+            truePositions = []
+            for position in positions:
+                if float(position['contracts']) > 0 and (symbol is None or position['symbol'] == symbol):
+                    truePositions.append(position)
+            return truePositions
+        except BaseException as err:
+            raise Exception("An error occured in get_open_position", err)
+
+    @authentication_required
+    def cancel_order_by_id(self, id, symbol, conditionnal=False):
+        try:
+            if conditionnal:
+                return self._session.cancel_order(id, symbol, params={'stop': True, "planType": "normal_plan"})
             else:
-                await self._session.set_leverage(
-                    leverage,
-                    pair,
-                    params={"productType": "USDT-FUTURES", "marginCoin": "USDT"},
-                )
-        except Exception as e:
-            pass
-
-        return Info(
-            success=True,
-            message=f"Margin mode and leverage set to {margin_mode} and {leverage}x",
-        )
-
-    async def get_open_positions(self, pairs) -> List[Position]:
-        pairs = [self.ext_pair_to_pair(pair) for pair in pairs]
-        resp = await self._session.fetch_positions(
-            symbols=pairs, params={"productType": "USDT-FUTURES", "marginCoin": "USDT"}
-        )
-        return_positions = []
-        for position in resp:
-            liquidation_price = 0
-            take_profit_price = 0
-            stop_loss_price = 0
-            if position["liquidationPrice"]:
-                liquidation_price = position["liquidationPrice"]
-            if position["takeProfitPrice"]:
-                take_profit_price = position["takeProfitPrice"]
-            if position["stopLossPrice"]:
-                stop_loss_price = position["stopLossPrice"]
-
-            return_positions.append(
-                Position(
-                    pair=self.pair_to_ext_pair(position["symbol"]),
-                    side=position["side"],
-                    size=position["contracts"] * position["contractSize"],
-                    usd_size=round(
-                        (position["contracts"] * position["contractSize"])
-                        * position["markPrice"],
-                        2,
-                    ),
-                    entry_price=position["entryPrice"],
-                    current_price=position["markPrice"],
-                    unrealizedPnl=position["unrealizedPnl"],
-                    liquidation_price=liquidation_price,
-                    leverage=position["leverage"],
-                    margin_mode=position["marginMode"],
-                    hedge_mode=position["hedged"],
-                    open_timestamp=position["timestamp"],
-                    take_profit_price=take_profit_price,
-                    stop_loss_price=stop_loss_price,
-                )
-            )
-        return return_positions
-
-    async def place_order(
-        self,
-        pair,
-        side,
-        price,
-        size,
-        type="limit",
-        reduce=False,
-        margin_mode="crossed",
-        hedge_mode=False,
-        error=False,
-    ) -> Order:
+                return self._session.cancel_order(id, symbol)
+        except BaseException as err:
+            raise Exception("An error occured in cancel_order_by_id", err)
+        
+    @authentication_required
+    def cancel_all_open_order(self):
         try:
-            pair = self.ext_pair_to_pair(pair)
-            trade_side = "Open" if reduce is False else "Close"
-            margin_mode = "cross" if margin_mode == "crossed" else "isolated"
-            resp = await self._session.create_order(
-                symbol=pair,
-                type=type,
-                side=side,
-                amount=size,
-                price=price,
-                params={
-                    "reduceOnly": reduce,
-                    "tradeSide": trade_side,
-                    "marginMode": margin_mode,
-                    "hedged": hedge_mode,
-                },
+            return self._session.cancel_all_orders(
+                params = {
+                    "marginCoin": "USDT",
+                }
             )
-            order_id = resp["id"]
-            pair = self.pair_to_ext_pair(resp["symbol"])
-            order = await self.get_order_by_id(order_id, pair)
-            return order
-        except Exception as e:
-            print(f"Error {type} {side} {size} {pair} - Price {price} - Error => {str(e)}")
-            if error:
-                raise e
-            else:
-                return None
-
-    async def place_trigger_order(
-        self,
-        pair,
-        side,
-        price,
-        trigger_price,
-        size,
-        type="limit",
-        reduce=False,
-        margin_mode="crossed",
-        hedge_mode=False,
-        error=False,
-    ) -> Info:
+        except BaseException as err:
+            raise Exception("An error occured in cancel_all_open_order", err)
+        
+    @authentication_required
+    def cancel_order_ids(self, ids=[], symbol=None):
         try:
-            pair = self.ext_pair_to_pair(pair)
-            trade_side = "Open" if reduce is False else "Close"
-            margin_mode = "cross" if margin_mode == "crossed" else "isolated"
-            trigger_order = await self._session.create_trigger_order(
-                symbol=pair,
-                type=type,
-                side=side,
-                amount=size,
-                price=price,
-                triggerPrice=trigger_price,
-                params={
-                    "reduceOnly": reduce,
-                    "tradeSide": trade_side,
-                    "marginMode": margin_mode,
-                    "hedged": hedge_mode,
-                },
-            )
-            resp = Info(success=True, message="Trigger Order set up")
-            return resp
-        except Exception as e:
-            print(f"Error {type} {side} {size} {pair} - Trigger {trigger_price} - Price {price} - Error => {str(e)}")
-            if error:
-                raise e
-            else:
-                return None
-
-    async def get_open_orders(self, pair) -> List[Order]:
-        pair = self.ext_pair_to_pair(pair)
-        resp = await self._session.fetch_open_orders(pair)
-        return_orders = []
-        for order in resp:
-            return_orders.append(
-                Order(
-                    id=order["id"],
-                    pair=self.pair_to_ext_pair(order["symbol"]),
-                    type=order["type"],
-                    side=order["side"],
-                    price=order["price"],
-                    size=order["amount"],
-                    reduce=order["reduceOnly"],
-                    filled=order["filled"],
-                    remaining=order["remaining"],
-                    timestamp=order["timestamp"],
-                )
-            )
-        return return_orders
-
-    async def get_open_trigger_orders(self, pair) -> List[TriggerOrder]:
-        pair = self.ext_pair_to_pair(pair)
-        resp = await self._session.fetch_open_orders(pair, params={"stop": True})
-        # print(resp)
-        return_orders = []
-        for order in resp:
-            reduce = True if order["info"]["tradeSide"] == "close" else False
-            price = order["price"] if order["price"] else 0.0
-            return_orders.append(
-                TriggerOrder(
-                    id=order["id"],
-                    pair=self.pair_to_ext_pair(order["symbol"]),
-                    type=order["type"],
-                    side=order["side"],
-                    price=price,
-                    trigger_price=order["triggerPrice"],
-                    size=order["amount"],
-                    reduce=reduce,
-                    timestamp=order["timestamp"],
-                )
-            )
-        return return_orders
-
-    async def get_order_by_id(self, order_id, pair) -> Order:
-        pair = self.ext_pair_to_pair(pair)
-        resp = await self._session.fetch_order(order_id, pair)
-        return Order(
-            id=resp["id"],
-            pair=self.pair_to_ext_pair(resp["symbol"]),
-            type=resp["type"],
-            side=resp["side"],
-            price=resp["price"],
-            size=resp["amount"],
-            reduce=resp["reduceOnly"],
-            filled=resp["filled"],
-            remaining=resp["remaining"],
-            timestamp=resp["timestamp"],
-        )
-
-    async def cancel_orders(self, pair, ids=[]):
-        try:
-            pair = self.ext_pair_to_pair(pair)
-            resp = await self._session.cancel_orders(
+            return self._session.cancel_orders(
                 ids=ids,
-                symbol=pair,
+                symbol=symbol,
+                params = {
+                    "marginCoin": "USDT",
+                }
             )
-            return Info(success=True, message=f"{len(resp)} Orders cancelled")
-        except Exception as e:
-            return Info(success=False, message="Error or no orders to cancel")
-
-    async def cancel_trigger_orders(self, pair, ids=[]):
-        try:
-            pair = self.ext_pair_to_pair(pair)
-            resp = await self._session.cancel_orders(
-                ids=ids, symbol=pair, params={"stop": True}
-            )
-            return Info(success=True, message=f"{len(resp)} Trigger Orders cancelled")
-        except Exception as e:
-            return Info(success=False, message="Error or no orders to cancel")
+        except BaseException as err:
+            raise Exception("An error occured in cancel_order_ids", err)
