@@ -9,17 +9,13 @@ from utilities.var import ValueAtRisk
 from datetime import datetime
 import time
 import json
-import copy
+from secret import ACCOUNTS
 
 now = datetime.now()
 current_time = now.strftime("%d/%m/%Y %H:%M:%S")
 print("--- Start Execution Time :", current_time, "---")
 
-f = open(
-    "./live_tools/secret.json",
-)
-secret = json.load(f)
-f.close()
+
 
 account_to_select = "bitget1"
 production = True
