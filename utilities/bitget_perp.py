@@ -42,37 +42,49 @@ class PerpBitget():
         return result
 
     def get_more_last_historical_async(self, symbol, timeframe, limit):
+         1  def get_more_last_historical_async(self, symbol, timeframe, limit):
         max_threads = 4
-
+ 
+        batch_size = 100
+        timeframe_in_seconds = self._session.parse_timeframe(timeframe)
+        total_iterations = int((limit + batch_size - 1) / batch_size)
+ 
         def worker(i):
             try:
-                timeframe_in_seconds = self._session.parse_timeframe(timeframe)
-                since = round(time.time() * 1000) - (i * 100 * timeframe_in_seconds * 1000)
+                since = round(time.time() * 1000) - ((i + 1) * batch_size * timeframe_in_seconds * 1000)
                 print(f"Fetching data for {symbol} since {since}")
                 data = self._session.fetch_ohlcv(
-                    symbol, timeframe, since=since, limit=100)
+                    symbol, timeframe, since=since, limit=batch_size)
                 print(f"Fetched {len(data)} candles for {symbol}")
                 return data
             except Exception as err:
                 print(f"Error fetching data for {symbol}: {type(err).__name__} - {err}")
                 return []
-
+  
         pool = Pool(max_threads)
-        iterations = list(range(0, limit, 100))
-    
+  
+        iterations = list(range(total_iterations))
+  
         full_result = pool.map(worker, iterations)
+
+        # Aplatir la liste des résultats
         full_result_flat = [candle for batch in full_result for candle in batch]
-    
-        if not full_result_flat:
-            raise ValueError(f"No data retrieved for {symbol}.")
-    
+
+        # Supprimer les doublons éventuels
+        full_result_flat = [list(t) for t in set(tuple(element) for element in full_result_flat)]
+
+        # Trier les bougies par timestamp
+        full_result_flat.sort(key=lambda x: x[0])
+
+        # Convertir en DataFrame
         result = pd.DataFrame(data=full_result_flat, columns=[
                               'timestamp', 'open', 'high', 'low', 'close', 'volume'])
         result['timestamp'] = pd.to_datetime(result['timestamp'], unit='ms')
         result = result.set_index('timestamp')
         result = result.sort_index()
-    
+
         return result
+
 
 
     def get_bid_ask_price(self, symbol):
