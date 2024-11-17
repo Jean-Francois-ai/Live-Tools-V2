@@ -1,5 +1,5 @@
 from typing import List
-import ccxt.async_support as ccxt
+import ccxt
 import asyncio
 import pandas as pd
 import time
@@ -63,23 +63,64 @@ class Position(BaseModel):
 
 
 class PerpBitget:
+   
     def __init__(self, publicapi=None, secretapi=None, password=None):
         bitget_auth_object = {
             "apiKey": publicapi,
             "secret": secretapi,
             "password": password,
-            "enableRateLimit": True,
-            "rateLimit": 100,
-            "options": {
-                "defaultType": "future",
-            },
+            'options': {
+                'defaultType': 'swap',
+            }
         }
-        if bitget_auth_object["secret"] == None:
+        if bitget_auth_object['secret'] is None:
             self._auth = False
             self._session = ccxt.bitget()
         else:
             self._auth = True
             self._session = ccxt.bitget(bitget_auth_object)
+        self.market = self._session.load_markets()
+
+    def authentication_required(fn):
+        """Annotation for methods that require auth."""
+        def wrapped(self, *args, **kwargs):
+            if not self._auth:
+                raise Exception("You must be authenticated to use this method")
+            else:
+                return fn(self, *args, **kwargs)
+        return wrapped
+
+    def get_more_last_historical(self, symbol, timeframe, limit):
+        batch_size = 100
+        timeframe_in_seconds = self._session.parse_timeframe(timeframe)
+        total_iterations = int((limit + batch_size - 1) / batch_size)
+
+        all_data = []
+        for i in range(total_iterations):
+            since = round(time.time() * 1000) - ((i + 1) * batch_size * timeframe_in_seconds * 1000)
+            try:
+                print(f"Fetching data for {symbol} since {since}")
+                data = self._session.fetch_ohlcv(symbol, timeframe, since=since, limit=batch_size)
+                print(f"Fetched {len(data)} candles for {symbol}")
+                all_data.extend(data)
+            except Exception as err:
+                print(f"Error fetching data for {symbol}: {type(err).__name__} - {err}")
+                time.sleep(1)
+
+        # Supprimer les doublons éventuels
+        all_data = [list(t) for t in set(tuple(element) for element in all_data)]
+
+        # Trier les bougies par timestamp
+        all_data.sort(key=lambda x: x[0])
+
+        # Convertir en DataFrame
+        result = pd.DataFrame(data=all_data, columns=[
+                              'timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        result['timestamp'] = pd.to_datetime(result['timestamp'], unit='ms')
+        result = result.set_index('timestamp')
+        result = result.sort_index()
+
+        return result
 
     async def load_markets(self):
         self.market = await self._session.load_markets()
@@ -111,32 +152,7 @@ class PerpBitget:
         pair = self.ext_pair_to_pair(pair)
         return self._session.price_to_precision(pair, price)
 
-    def get_more_last_historical_async(self, symbol, timeframe, limit):
-        max_threads = 4
-        pool_size = round(limit/100)  # your "parallelness"
-
-        # define worker function before a Pool is instantiated
-        full_result = []
-        def worker(i):
-            
-            try:
-                return self._session.fetch_ohlcv(
-                symbol, timeframe, round(time.time() * 1000) - (i*1000*60*60), limit=100)
-            except Exception as err:
-                raise Exception("Error on last historical on " + symbol + ": " + str(err))
-
-        pool = Pool(max_threads)
-
-        full_result = pool.map(worker,range(limit, 0, -100))
-        full_result = np.array(full_result).reshape(-1,6)
-        result = pd.DataFrame(data=full_result)
-        result = result.rename(
-            columns={0: 'timestamp', 1: 'open', 2: 'high', 3: 'low', 4: 'close', 5: 'volume'})
-        result = result.set_index(result['timestamp'])
-        result.index = pd.to_datetime(result.index, unit='ms')
-        del result['timestamp']
-        return result.sort_index()
-
+    
     async def get_last_ohlcv(self, pair, timeframe, limit=1000) -> pd.DataFrame:
         pair = self.ext_pair_to_pair(pair)
         bitget_limit = 200
