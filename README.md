@@ -2,7 +2,7 @@ Live-Tools-V2
 
 Set up
 
-git clone https://github.com/CryptoRobotFr/Live-Tools-V2.git
+git clone https://github.com/Jean-Francois-ai/Live-Tools-V2.git
 
 Install bollinger strategy
 
