@@ -29,21 +29,79 @@ class PerpBitget():
                 return fn(self, *args, **kwargs)
         return wrapped
 
-    def get_hold_side(self, side, reduce=False):
-        if side.lower() == 'buy':
-            return 'close_short' if reduce else 'long'
-        elif side.lower() == 'sell':
-            return 'close_long' if reduce else 'short'
+    def get_pos_side(self, side, reduce=False):
+        if side.lower() == 'buy' and not reduce:
+            return 'long'
+        elif side.lower() == 'sell' and not reduce:
+            return 'short'
+        elif side.lower() == 'buy' and reduce:
+            return 'short'
+        elif side.lower() == 'sell' and reduce:
+            return 'long'
         else:
-            raise ValueError(f"Invalid side: {side}")
+            raise ValueError(f"Combinaison invalide de side: {side} et reduce: {reduce}")
+
+    def get_last_historical(self, symbol, timeframe, limit):
+        data = self._session.fetch_ohlcv(symbol, timeframe, limit=limit)
+        df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        return df
+
+    def get_more_last_historical(self, symbol, timeframe, limit):
+        batch_size = 100
+        timeframe_in_seconds = self._session.parse_timeframe(timeframe)
+        total_iterations = int((limit + batch_size - 1) / batch_size)
+        all_data = []
+        since = None
+        for i in range(total_iterations):
+            try:
+                data = self._session.fetch_ohlcv(
+                    symbol,
+                    timeframe,
+                    since=since,
+                    limit=batch_size
+                )
+                if not data:
+                    break
+                all_data.extend(data)
+                since = data[-1][0] + timeframe_in_seconds * 1000
+            except Exception as err:
+                print(f"Erreur lors de la récupération des données pour {symbol}: {type(err).__name__} - {err}")
+                time.sleep(1)
+        # Supprimer les doublons et trier
+        all_data = list({tuple(row) for row in all_data})
+        all_data.sort()
+        df = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        df.sort_index(inplace=True)
+        return df
+
+    def get_bid_ask_price(self, symbol):
+        try:
+            ticker = self._session.fetch_ticker(symbol)
+            return {"bid": ticker["bid"], "ask": ticker["ask"]}
+        except Exception as err:
+            raise Exception(err)
+
+    def get_min_order_amount(self, symbol):
+        market = self._session.market(symbol)
+        return market["limits"]["amount"]["min"]
+
+    def convert_amount_to_precision(self, symbol, amount):
+        return self._session.amount_to_precision(symbol, amount)
+
+    def convert_price_to_precision(self, symbol, price):
+        return self._session.price_to_precision(symbol, price)
 
     @authentication_required
     def place_market_order(self, symbol, side, amount, reduce=False):
         try:
             params = {
                 "reduceOnly": reduce,
-                "holdSide": self.get_hold_side(side, reduce),
-                "positionMode": "single_side",  # Utilisez "single_side" ou "double_side" selon votre compte
+                "posSide": self.get_pos_side(side, reduce),
+                "marginCoin": "USDT",  # Spécifiez la monnaie de marge
             }
             order = self._session.create_order(
                 symbol,
@@ -62,8 +120,8 @@ class PerpBitget():
         try:
             params = {
                 "reduceOnly": reduce,
-                "holdSide": self.get_hold_side(side, reduce),
-                "positionMode": "single_side",
+                "posSide": self.get_pos_side(side, reduce),
+                "marginCoin": "USDT",
             }
             order = self._session.create_order(
                 symbol,
@@ -82,11 +140,11 @@ class PerpBitget():
         try:
             params = {
                 'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
-                "triggerType": "market_price",
+                "triggerType": "fill_price",  # Utilisez "fill_price" ou "market_price" selon vos besoins
                 "reduceOnly": reduce,
                 'stop': True,
-                "holdSide": self.get_hold_side(side, reduce),
-                "positionMode": "single_side",
+                "posSide": self.get_pos_side(side, reduce),
+                "marginCoin": "USDT",
             }
             order = self._session.create_order(
                 symbol,
@@ -105,11 +163,11 @@ class PerpBitget():
         try:
             params = {
                 'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
-                "triggerType": "market_price",
+                "triggerType": "fill_price",  # Utilisez "fill_price" ou "market_price" selon vos besoins
                 "reduceOnly": reduce,
                 'stop': True,
-                "holdSide": self.get_hold_side(side, reduce),
-                "positionMode": "single_side",
+                "posSide": self.get_pos_side(side, reduce),
+                "marginCoin": "USDT",
             }
             order = self._session.create_order(
                 symbol,
@@ -123,12 +181,84 @@ class PerpBitget():
         except Exception as err:
             raise Exception(err)
 
-    # Les autres méthodes restent inchangées
-    # ...
+    @authentication_required
+    def get_balance_of_one_coin(self, coin):
+        try:
+            balance_info = self._session.fetch_balance()
+            return balance_info['total'].get(coin, 0.0)
+        except Exception as err:
+            raise Exception("Une erreur s'est produite", err)
 
-    def convert_amount_to_precision(self, symbol, amount):
-        return self._session.amount_to_precision(symbol, amount)
+    @authentication_required
+    def get_all_balance(self):
+        try:
+            balance_info = self._session.fetch_balance()
+            return balance_info
+        except Exception as err:
+            raise Exception("Une erreur s'est produite", err)
 
-    def convert_price_to_precision(self, symbol, price):
-        return self._session.price_to_precision(symbol, price)
+    @authentication_required
+    def get_usdt_equity(self):
+        try:
+            balance_info = self._session.fetch_balance()
+            usdt_equity = balance_info['total'].get('USDT', 0.0)
+            return usdt_equity
+        except Exception as err:
+            raise Exception("Une erreur s'est produite dans get_usdt_equity", err)
 
+    @authentication_required
+    def get_open_order(self, symbol, conditional=False):
+        try:
+            params = {'stop': conditional}
+            orders = self._session.fetch_open_orders(symbol, params=params)
+            return orders
+        except Exception as err:
+            raise Exception("Une erreur s'est produite", err)
+
+    @authentication_required
+    def get_my_orders(self, symbol):
+        try:
+            orders = self._session.fetch_orders(symbol)
+            return orders
+        except Exception as err:
+            raise Exception("Une erreur s'est produite", err)
+
+    @authentication_required
+    def get_open_position(self, symbol=None):
+        try:
+            positions = self._session.fetch_positions(symbols=[symbol] if symbol else None)
+            true_positions = []
+            for position in positions:
+                if float(position['contracts']) > 0:
+                    true_positions.append(position)
+            return true_positions
+        except Exception as err:
+            raise Exception("Une erreur s'est produite dans get_open_position", err)
+
+    @authentication_required
+    def cancel_order_by_id(self, id, symbol, conditional=False):
+        try:
+            params = {'stop': conditional} if conditional else {}
+            result = self._session.cancel_order(id, symbol, params=params)
+            return result
+        except Exception as err:
+            raise Exception("Une erreur s'est produite dans cancel_order_by_id", err)
+
+    @authentication_required
+    def cancel_all_open_order(self, symbol=None):
+        try:
+            result = self._session.cancel_all_orders(symbol=symbol)
+            return result
+        except Exception as err:
+            raise Exception("Une erreur s'est produite dans cancel_all_open_order", err)
+
+    @authentication_required
+    def cancel_order_ids(self, ids=[], symbol=None):
+        try:
+            result = self._session.cancel_orders(
+                ids=ids,
+                symbol=symbol,
+            )
+            return result
+        except Exception as err:
+            raise Exception("Une erreur s'est produite dans cancel_order_ids", err)
