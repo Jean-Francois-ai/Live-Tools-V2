@@ -29,6 +29,14 @@ class PerpBitget():
                 return fn(self, *args, **kwargs)
         return wrapped
 
+    def get_hold_side(self, side, reduce=False):
+        if side.lower() == 'buy':
+            return 'close_short' if reduce else 'long'
+        elif side.lower() == 'sell':
+            return 'close_long' if reduce else 'short'
+        else:
+            raise ValueError(f"Invalid side: {side}")
+
     def get_last_historical(self, symbol, timeframe, limit):
         data = self._session.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -80,7 +88,7 @@ class PerpBitget():
         try:
             params = {
                 "reduceOnly": reduce,
-                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon le mode de position de votre compte
+                "holdSide": self.get_hold_side(side, reduce),
             }
             order = self._session.create_order(
                 symbol,
@@ -102,7 +110,7 @@ class PerpBitget():
                 "triggerType": "market_price",
                 "reduceOnly": reduce,
                 'stop': True,
-                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon votre configuration
+                "holdSide": self.get_hold_side(side, reduce),
             }
             order = self._session.create_order(
                 symbol,
@@ -121,7 +129,7 @@ class PerpBitget():
         try:
             params = {
                 "reduceOnly": reduce,
-                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon votre configuration
+                "holdSide": self.get_hold_side(side, reduce),
             }
             order = self._session.create_order(
                 symbol,
@@ -143,7 +151,7 @@ class PerpBitget():
                 "triggerType": "market_price",
                 "reduceOnly": reduce,
                 'stop': True,
-                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon votre configuration
+                "holdSide": self.get_hold_side(side, reduce),
             }
             order = self._session.create_order(
                 symbol,
