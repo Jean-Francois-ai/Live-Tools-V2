@@ -15,7 +15,7 @@ class PerpBitget():
                 "password": password,
                 'enableRateLimit': True,
                 'options': {
-                    'defaultType': 'swap',  # Nous travaillons avec des contrats perpétuels
+                    'defaultType': 'swap',  # Nous utilisons les contrats perpétuels
                 },
                 'verbose': False,
             })
@@ -29,17 +29,13 @@ class PerpBitget():
                 return fn(self, *args, **kwargs)
         return wrapped
 
-    def get_pos_side(self, side, reduce=False):
-        if side.lower() == 'buy' and not reduce:
-            return 'long'
-        elif side.lower() == 'sell' and not reduce:
-            return 'short'
-        elif side.lower() == 'buy' and reduce:
-            return 'short'
-        elif side.lower() == 'sell' and reduce:
-            return 'long'
+    def get_hold_side(self, side, reduce=False):
+        if side.lower() == 'buy':
+            return 'close_short' if reduce else 'open_long'
+        elif side.lower() == 'sell':
+            return 'close_long' if reduce else 'open_short'
         else:
-            raise ValueError(f"Combinaison invalide de side: {side} et reduce: {reduce}")
+            raise ValueError(f"Invalid side: {side}")
 
     def get_last_historical(self, symbol, timeframe, limit):
         data = self._session.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -70,8 +66,7 @@ class PerpBitget():
                 print(f"Erreur lors de la récupération des données pour {symbol}: {type(err).__name__} - {err}")
                 time.sleep(1)
         # Supprimer les doublons et trier
-        all_data = list({tuple(row) for row in all_data})
-        all_data.sort()
+        all_data = sorted(list(set(map(tuple, all_data))))
         df = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         df.set_index('timestamp', inplace=True)
@@ -96,32 +91,12 @@ class PerpBitget():
         return self._session.price_to_precision(symbol, price)
 
     @authentication_required
-    def place_market_order(self, symbol, side, amount, reduce=False):
-        try:
-            params = {
-                "reduceOnly": reduce,
-                "posSide": self.get_pos_side(side, reduce),
-                "marginCoin": "USDT",  # Spécifiez la monnaie de marge
-            }
-            order = self._session.create_order(
-                symbol,
-                'market',
-                side,
-                amount,
-                None,
-                params=params
-            )
-            return order
-        except Exception as err:
-            raise Exception(err)
-
-    @authentication_required
     def place_limit_order(self, symbol, side, amount, price, reduce=False):
         try:
             params = {
                 "reduceOnly": reduce,
-                "posSide": self.get_pos_side(side, reduce),
-                "marginCoin": "USDT",
+                "holdSide": self.get_hold_side(side, reduce),
+                "positionMode": "single_side",  # Assurez-vous que votre compte est en mode unidirectionnel
             }
             order = self._session.create_order(
                 symbol,
@@ -136,15 +111,35 @@ class PerpBitget():
             raise Exception(err)
 
     @authentication_required
+    def place_market_order(self, symbol, side, amount, reduce=False):
+        try:
+            params = {
+                "reduceOnly": reduce,
+                "holdSide": self.get_hold_side(side, reduce),
+                "positionMode": "single_side",
+            }
+            order = self._session.create_order(
+                symbol,
+                'market',
+                side,
+                amount,
+                None,
+                params=params
+            )
+            return order
+        except Exception as err:
+            raise Exception(err)
+
+    @authentication_required
     def place_limit_stop_loss(self, symbol, side, amount, trigger_price, price, reduce=False):
         try:
             params = {
                 'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
-                "triggerType": "fill_price",  # Utilisez "fill_price" ou "market_price" selon vos besoins
+                "triggerType": "fill_price",
                 "reduceOnly": reduce,
                 'stop': True,
-                "posSide": self.get_pos_side(side, reduce),
-                "marginCoin": "USDT",
+                "holdSide": self.get_hold_side(side, reduce),
+                "positionMode": "single_side",
             }
             order = self._session.create_order(
                 symbol,
@@ -163,11 +158,11 @@ class PerpBitget():
         try:
             params = {
                 'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
-                "triggerType": "fill_price",  # Utilisez "fill_price" ou "market_price" selon vos besoins
+                "triggerType": "fill_price",
                 "reduceOnly": reduce,
                 'stop': True,
-                "posSide": self.get_pos_side(side, reduce),
-                "marginCoin": "USDT",
+                "holdSide": self.get_hold_side(side, reduce),
+                "positionMode": "single_side",
             }
             order = self._session.create_order(
                 symbol,
@@ -185,7 +180,7 @@ class PerpBitget():
     def get_balance_of_one_coin(self, coin):
         try:
             balance_info = self._session.fetch_balance()
-            return balance_info['total'].get(coin, 0.0)
+            return balance_info['total'].get(coin.upper(), 0.0)
         except Exception as err:
             raise Exception("Une erreur s'est produite", err)
 
@@ -226,7 +221,8 @@ class PerpBitget():
     @authentication_required
     def get_open_position(self, symbol=None):
         try:
-            positions = self._session.fetch_positions(symbols=[symbol] if symbol else None)
+            params = {"type": "swap"}
+            positions = self._session.fetch_positions(symbols=[symbol] if symbol else None, params=params)
             true_positions = []
             for position in positions:
                 if float(position['contracts']) > 0:
@@ -262,3 +258,4 @@ class PerpBitget():
             return result
         except Exception as err:
             raise Exception("Une erreur s'est produite dans cancel_order_ids", err)
+
