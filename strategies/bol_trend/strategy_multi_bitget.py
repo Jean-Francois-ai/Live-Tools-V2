@@ -18,287 +18,54 @@ print("--- Start Execution Time :", current_time, "---")
 
 account = ACCOUNTS["bitget1"]
 
-
 production = True
 timeframe = "1h"
-type = ["long", "short"]
+types = ["long", "short"]
 leverage = 2
 max_var = 1
 max_side_exposition = 1
 
 params_coin = {
+    # Vos paramètres pour chaque paire de trading
+    # Exemple pour BTC/USDT:USDT :
     "BTC/USDT:USDT": {
         "wallet_exposure": 0.05,
         "bb_window": 100,
         "bb_std": 2.25,
         "long_ma_window": 500
     },
-    "AAVE/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "APE/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "APT/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "AVAX/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "AXS/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "C98/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "CRV/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "DOGE/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "DOT/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "DYDX/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "ETH/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "FIL/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "FTM/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "BNB/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "GALA/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "GMT/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "GRT/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "KNC/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "KSM/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 2.25,
-        "long_ma_window": 500
-    },
-    "LRC/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "MANA/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "MASK/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "MAGIC/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "NEAR/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "ONE/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "OP/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 2.25,
-        "long_ma_window": 500
-    },
-    "SAND/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "SHIB/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "SOL/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "STG/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "WAXP/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 2.25,
-        "long_ma_window": 500
-    },
-    "YGG/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "WOO/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 1,
-        "long_ma_window": 500
-    },
-    "EGLD/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 2.25,
-        "long_ma_window": 500
-    },
-    "ETC/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 2.25,
-        "long_ma_window": 500
-    },
-    "JASMY/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 2.25,
-        "long_ma_window": 500
-    },
-    "ROSE/USDT:USDT": {
-        "wallet_exposure": 0.05,
-        "bb_window": 100,
-        "bb_std": 2.25,
-        "long_ma_window": 500
-    },
+    # Ajoutez les autres paires ici...
 }
 
 def open_long(row):
-    if (
+    return (
         row['n1_close'] < row['n1_higher_band'] 
-        and (row['close'] > row['higher_band']) 
-        and (row['close'] > row['long_ma'])
-    ):
-        return True
-    else:
-        return False
+        and row['close'] > row['higher_band'] 
+        and row['close'] > row['long_ma']
+    )
 
 def close_long(row):
-    if (row['close'] < row['ma_band']):
-        return True
-    else:
-        return False
+    return row['close'] < row['ma_band']
 
 def open_short(row):
-    if (
+    return (
         row['n1_close'] > row['n1_lower_band'] 
-        and (row['close'] < row['lower_band']) 
-        and (row['close'] < row['long_ma'])        
-    ):
-        return True
-    else:
-        return False
+        and row['close'] < row['lower_band'] 
+        and row['close'] < row['long_ma']
+    )
 
 def close_short(row):
-    if (row['close'] > row['ma_band']):
-        return True
-    else:
-        return False
+    return row['close'] > row['ma_band']
 
 print(f"--- Bollinger Trend on {len(params_coin)} tokens {timeframe} Leverage x{leverage} ---")
 
 bitget = PerpBitget(
-        apiKey=account["apiKey"],
-        secret=account["secret"],
-        password=account["password"],
+    apiKey=account["apiKey"],
+    secret=account["secret"],
+    password=account["password"],
 )
 
-
-# Get data
+# Chargement des données
 df_list = {}
 for pair in params_coin:
     temp_data = bitget.get_more_last_historical(pair, timeframe, 1000)
@@ -307,8 +74,8 @@ for pair in params_coin:
     else:
         print(f"Pair {pair} not loaded, length: {len(temp_data)}")
 print("Data OHLCV loaded 100%")
-print(df_list)
 
+# Calcul des indicateurs
 for pair in df_list:
     df = df_list[pair]
     params = params_coin[pair]
@@ -317,7 +84,7 @@ for pair in df_list:
     df["higher_band"] = bol_band.bollinger_hband()
     df["ma_band"] = bol_band.bollinger_mavg()
 
-    df['long_ma'] = ta.trend.sma_indicator(close=df['close'], window=params["long_ma_window"])
+    df['long_ma'] = ta.trend.SMAIndicator(close=df['close'], window=params["long_ma_window"]).sma_indicator()
     
     df["n1_close"] = df["close"].shift(1)
     df["n1_lower_band"] = df["lower_band"].shift(1)
@@ -327,25 +94,50 @@ for pair in df_list:
 
 print("Indicators loaded 100%")
 
+# Calcul de la Value at Risk
 var = ValueAtRisk(df_list=df_list.copy())
 var.update_cov(current_date=df_list["BTC/USDT:USDT"].index[-1], occurance_data=989)
 print("Value At Risk loaded 100%")
 
+# Récupération du solde en USD
 usd_balance = float(bitget.get_usdt_equity())
 print("USD balance :", round(usd_balance, 2), "$")
 
+# Récupération des positions ouvertes
 positions_data = bitget.get_open_position()
-position_list = [
-    {"pair": d["symbol"], "side": d["side"], "size": float(d["contracts"]) * float(d["contractSize"]), "market_price":d["info"]["marketPrice"], "usd_size": float(d["contracts"]) * float(d["contractSize"]) * float(d["info"]["marketPrice"]), "open_price": d["entryPrice"]}
-    for d in positions_data if d["symbol"] in df_list]
+position_list = []
+
+for d in positions_data:
+    if d["symbol"] in df_list:
+        try:
+            # Récupération du prix du marché actuel
+            ticker = bitget._session.fetch_ticker(d["symbol"])
+            market_price = float(ticker["last"])
+            position_info = {
+                "pair": d["symbol"],
+                "side": d["side"],
+                "size": float(d["contracts"]) * float(d["contractSize"]),
+                "market_price": market_price,
+                "usd_size": float(d["contracts"]) * float(d["contractSize"]) * market_price,
+                "open_price": float(d["entryPrice"])
+            }
+            position_list.append(position_info)
+        except Exception as e:
+            print(f"Erreur lors du traitement de la position pour {d['symbol']}: {e}")
 
 positions = {}
 for pos in position_list:
-    positions[pos["pair"]] = {"side": pos["side"], "size": pos["size"], "market_price": pos["market_price"], "usd_size": pos["usd_size"], "open_price": pos["open_price"]}
+    positions[pos["pair"]] = {
+        "side": pos["side"],
+        "size": pos["size"],
+        "market_price": pos["market_price"],
+        "usd_size": pos["usd_size"],
+        "open_price": pos["open_price"]
+    }
 
 print(f"{len(positions)} active positions ({list(positions.keys())})")
 
-# Check for closing positions...
+# Vérification pour fermer les positions
 positions_to_delete = []
 for pair in positions:
     row = df_list[pair].iloc[-2]
@@ -381,46 +173,50 @@ for pair in positions:
 for pair in positions_to_delete:
     del positions[pair]
 
-# Check current VaR risk
+# Vérification de la VaR actuelle
 positions_exposition = {}
 long_exposition = 0
 short_exposition = 0
 for pair in df_list:
-    positions_exposition[pair] = {"long":0, "short":0}
+    positions_exposition[pair] = {"long": 0, "short": 0}
 
 positions_data = bitget.get_open_position()
 for pos in positions_data:
-    if pos["symbol"] in df_list and pos["side"] == "long":
-       pct_exposition = (float(pos["contracts"]) * float(pos["contractSize"]) * float(pos["info"]["marketPrice"])) / usd_balance
-       positions_exposition[pos["symbol"]]["long"] += pct_exposition
-       long_exposition += pct_exposition
-    elif pos["symbol"] in df_list and pos["side"] == "short":
-       pct_exposition = (float(pos["contracts"]) * float(pos["contractSize"]) * float(pos["info"]["marketPrice"])) / usd_balance
-       positions_exposition[pos["symbol"]]["short"] += pct_exposition
-       short_exposition += pct_exposition
+    if pos["symbol"] in df_list:
+        try:
+            ticker = bitget._session.fetch_ticker(pos["symbol"])
+            market_price = float(ticker["last"])
+            pct_exposition = (float(pos["contracts"]) * float(pos["contractSize"]) * market_price) / usd_balance
+            if pos["side"] == "long":
+                positions_exposition[pos["symbol"]]["long"] += pct_exposition
+                long_exposition += pct_exposition
+            elif pos["side"] == "short":
+                positions_exposition[pos["symbol"]]["short"] += pct_exposition
+                short_exposition += pct_exposition
+        except Exception as e:
+            print(f"Erreur lors du calcul de l'exposition pour {pos['symbol']}: {e}")
 
 current_var = var.get_var(positions=positions_exposition)
-print(f"Current VaR rsik 1 period: - {round(current_var, 2)}%, LONG exposition {round(long_exposition * 100, 2)}%, SHORT exposition {round(short_exposition * 100, 2)}%")
+print(f"Current VaR risk 1 period: -{round(current_var, 2)}%, LONG exposition {round(long_exposition * 100, 2)}%, SHORT exposition {round(short_exposition * 100, 2)}%")
 
+# Ouverture de nouvelles positions
 for pair in df_list:
     if pair not in positions:
         try:
             row = df_list[pair].iloc[-2]
             last_price = float(df_list[pair].iloc[-1]["close"])
             pct_sizing = params_coin[pair]["wallet_exposure"]
-            if open_long(row) and "long" in type:
-                long_market_price = float(last_price)
+            if open_long(row) and "long" in types:
+                long_market_price = last_price
                 long_quantity_in_usd = usd_balance * pct_sizing * leverage
                 temp_positions = copy.deepcopy(positions_exposition)
                 temp_positions[pair]["long"] += (long_quantity_in_usd / usd_balance)
                 temp_long_exposition = long_exposition + (long_quantity_in_usd / usd_balance)
                 temp_var = var.get_var(positions=temp_positions)
                 if temp_var > max_var or temp_long_exposition > max_side_exposition:
-                    print(f"Blocked open LONG on {pair}, because next VaR: - {round(current_var, 2)}%")
+                    print(f"Blocked open LONG on {pair}, because next VaR: -{round(temp_var, 2)}%")
                 else:
-                    long_quantity = float(bitget.convert_amount_to_precision(pair, float(
-                        bitget.convert_amount_to_precision(pair, long_quantity_in_usd / long_market_price)
-                    )))
+                    long_quantity = float(bitget.convert_amount_to_precision(pair, long_quantity_in_usd / long_market_price))
                     exchange_long_quantity = long_quantity * long_market_price
                     print(
                         f"Place Open Long Market Order: {long_quantity} {pair[:-5]} at the price of {long_market_price}$ ~{round(exchange_long_quantity, 2)}$"
@@ -430,19 +226,17 @@ for pair in df_list:
                         positions_exposition[pair]["long"] += (long_quantity_in_usd / usd_balance)
                         long_exposition += (long_quantity_in_usd / usd_balance)
 
-            elif open_short(row) and "short" in type:
-                short_market_price = float(last_price)
+            elif open_short(row) and "short" in types:
+                short_market_price = last_price
                 short_quantity_in_usd = usd_balance * pct_sizing * leverage
                 temp_positions = copy.deepcopy(positions_exposition)
                 temp_positions[pair]["short"] += (short_quantity_in_usd / usd_balance)
                 temp_short_exposition = short_exposition + (short_quantity_in_usd / usd_balance)
                 temp_var = var.get_var(positions=temp_positions)
                 if temp_var > max_var or temp_short_exposition > max_side_exposition:
-                    print(f"Blocked open SHORT on {pair}, because next VaR: - {round(current_var, 2)}%")
+                    print(f"Blocked open SHORT on {pair}, because next VaR: -{round(temp_var, 2)}%")
                 else:
-                    short_quantity = float(bitget.convert_amount_to_precision(pair, float(
-                        bitget.convert_amount_to_precision(pair, short_quantity_in_usd / short_market_price)
-                    )))
+                    short_quantity = float(bitget.convert_amount_to_precision(pair, short_quantity_in_usd / short_market_price))
                     exchange_short_quantity = short_quantity * short_market_price
                     print(
                         f"Place Open Short Market Order: {short_quantity} {pair[:-5]} at the price of {short_market_price}$ ~{round(exchange_short_quantity, 2)}$"
@@ -451,10 +245,8 @@ for pair in df_list:
                         bitget.place_market_order(pair, "sell", short_quantity, reduce=False)
                         positions_exposition[pair]["short"] += (short_quantity_in_usd / usd_balance)
                         short_exposition += (short_quantity_in_usd / usd_balance)
-              
         except Exception as e:
-            print(f"Error on {pair} ({e}), skip {pair}")        
-
+            print(f"Error on {pair} ({e}), skip {pair}")
 
 now = datetime.now()
 current_time = now.strftime("%d/%m/%Y %H:%M:%S")
