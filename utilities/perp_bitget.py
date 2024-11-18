@@ -24,7 +24,7 @@ class PerpBitget():
     def authentication_required(fn):
         def wrapped(self, *args, **kwargs):
             if not self._auth:
-                raise Exception("You must be authenticated to use this method")
+                raise Exception("Vous devez être authentifié pour utiliser cette méthode")
             else:
                 return fn(self, *args, **kwargs)
         return wrapped
@@ -47,7 +47,7 @@ class PerpBitget():
                 data = self._session.fetch_ohlcv(symbol, timeframe, since=since, limit=batch_size)
                 all_data.extend(data)
             except Exception as err:
-                print(f"Error fetching data for {symbol}: {type(err).__name__} - {err}")
+                print(f"Erreur lors de la récupération des données pour {symbol}: {type(err).__name__} - {err}")
                 time.sleep(1)
         # Supprimer les doublons et trier
         all_data = list({tuple(row) for row in all_data})
@@ -78,13 +78,17 @@ class PerpBitget():
     @authentication_required
     def place_limit_order(self, symbol, side, amount, price, reduce=False):
         try:
+            params = {
+                "reduceOnly": reduce,
+                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon le mode de position de votre compte
+            }
             order = self._session.create_order(
                 symbol,
                 'limit',
                 side,
                 amount,
                 price,
-                params={"reduceOnly": reduce}
+                params=params
             )
             return order
         except Exception as err:
@@ -96,11 +100,13 @@ class PerpBitget():
             params = {
                 'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
                 "triggerType": "market_price",
-                "reduceOnly": reduce
+                "reduceOnly": reduce,
+                'stop': True,
+                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon votre configuration
             }
             order = self._session.create_order(
                 symbol,
-                'stopLimit',
+                'limit',
                 side,
                 amount,
                 price,
@@ -113,13 +119,17 @@ class PerpBitget():
     @authentication_required
     def place_market_order(self, symbol, side, amount, reduce=False):
         try:
+            params = {
+                "reduceOnly": reduce,
+                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon votre configuration
+            }
             order = self._session.create_order(
                 symbol,
                 'market',
                 side,
                 amount,
                 None,
-                params={"reduceOnly": reduce}
+                params=params
             )
             return order
         except Exception as err:
@@ -131,11 +141,13 @@ class PerpBitget():
             params = {
                 'stopPrice': self.convert_price_to_precision(symbol, trigger_price),
                 "triggerType": "market_price",
-                "reduceOnly": reduce
+                "reduceOnly": reduce,
+                'stop': True,
+                "positionMode": "normal"  # Utilisez "normal" ou "hedged" selon votre configuration
             }
             order = self._session.create_order(
                 symbol,
-                'stopMarket',
+                'market',
                 side,
                 amount,
                 None,
@@ -151,7 +163,7 @@ class PerpBitget():
             balance_info = self._session.fetch_balance()
             return balance_info['total'].get(coin, 0.0)
         except Exception as err:
-            raise Exception("An error occurred", err)
+            raise Exception("Une erreur s'est produite", err)
 
     @authentication_required
     def get_all_balance(self):
@@ -159,7 +171,7 @@ class PerpBitget():
             balance_info = self._session.fetch_balance()
             return balance_info
         except Exception as err:
-            raise Exception("An error occurred", err)
+            raise Exception("Une erreur s'est produite", err)
 
     @authentication_required
     def get_usdt_equity(self):
@@ -168,15 +180,16 @@ class PerpBitget():
             usdt_equity = balance_info['total'].get('USDT', 0.0)
             return usdt_equity
         except Exception as err:
-            raise Exception("An error occurred in get_usdt_equity", err)
+            raise Exception("Une erreur s'est produite dans get_usdt_equity", err)
 
     @authentication_required
     def get_open_order(self, symbol, conditional=False):
         try:
-            orders = self._session.fetch_open_orders(symbol, params={'stop': conditional})
+            params = {'stop': conditional}
+            orders = self._session.fetch_open_orders(symbol, params=params)
             return orders
         except Exception as err:
-            raise Exception("An error occurred", err)
+            raise Exception("Une erreur s'est produite", err)
 
     @authentication_required
     def get_my_orders(self, symbol):
@@ -184,13 +197,13 @@ class PerpBitget():
             orders = self._session.fetch_orders(symbol)
             return orders
         except Exception as err:
-            raise Exception("An error occurred", err)
+            raise Exception("Une erreur s'est produite", err)
 
     @authentication_required
     def get_open_position(self, symbol=None):
         try:
             params = {
-                "type": "swap",      # Pour les contrats perpétuels
+                "type": "swap",  # Pour les contrats perpétuels
             }
             positions = self._session.fetch_positions(symbols=[symbol] if symbol else None, params=params)
             true_positions = []
@@ -199,7 +212,7 @@ class PerpBitget():
                     true_positions.append(position)
             return true_positions
         except Exception as err:
-            raise Exception("An error occurred in get_open_position", err)
+            raise Exception("Une erreur s'est produite dans get_open_position", err)
 
     @authentication_required
     def cancel_order_by_id(self, id, symbol, conditional=False):
@@ -208,7 +221,7 @@ class PerpBitget():
             result = self._session.cancel_order(id, symbol, params=params)
             return result
         except Exception as err:
-            raise Exception("An error occurred in cancel_order_by_id", err)
+            raise Exception("Une erreur s'est produite dans cancel_order_by_id", err)
 
     @authentication_required
     def cancel_all_open_order(self, symbol=None):
@@ -216,7 +229,7 @@ class PerpBitget():
             result = self._session.cancel_all_orders(symbol=symbol)
             return result
         except Exception as err:
-            raise Exception("An error occurred in cancel_all_open_order", err)
+            raise Exception("Une erreur s'est produite dans cancel_all_open_order", err)
 
     @authentication_required
     def cancel_order_ids(self, ids=[], symbol=None):
@@ -227,4 +240,5 @@ class PerpBitget():
             )
             return result
         except Exception as err:
-            raise Exception("An error occurred in cancel_order_ids", err)
+            raise Exception("Une erreur s'est produite dans cancel_order_ids", err)
+
